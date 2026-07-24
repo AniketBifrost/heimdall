@@ -1,7 +1,14 @@
 {
-  "name": "heimdall",
-  "displayName": "Heimdall",
-  "version": "0.1.0",
-  "description": "Command-gated PreToolUse guardrail for Claude Code.",
-  "pluginPath": "."
+  "owner": {
+    "name": "heimdall"
+  },
+  "plugins": [
+    {
+      "name": "heimdall",
+      "displayName": "Heimdall",
+      "version": "0.1.0",
+      "description": "Command-gated PreToolUse guardrail for Claude Code.",
+      "pluginPath": "."
+    }
+  ]
 }
