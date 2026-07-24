@@ -1,0 +1,14 @@
+{
+  "name": "heimdall-marketplace",
+  "displayName": "Heimdall Marketplace",
+  "description": "Marketplace metadata for the Heimdall Claude Code plugin package.",
+  "version": "0.1.0",
+  "plugins": [
+    {
+      "name": "heimdall",
+      "displayName": "Heimdall",
+      "version": "0.1.0",
+      "path": "."
+    }
+  ]
+}
