@@ -2,6 +2,7 @@
 name: heimdall-off
 description: Deactivate Heimdall for this project. The hook stays installed but goes dormant — Write/Edit/MultiEdit are no longer challenged.
 user-invokable: true
+disable-model-invocation: true
 allowed-tools: Bash(node:*)
 ---
 

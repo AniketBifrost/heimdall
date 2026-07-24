@@ -2,6 +2,7 @@
 name: heimdall-status
 description: Show whether Heimdall is active for this project, in which mode, and the key tuning env vars.
 user-invokable: true
+disable-model-invocation: true
 allowed-tools: Bash(node:*)
 ---
 

@@ -3,6 +3,7 @@ name: heimdall-on
 description: Activate Heimdall for this project. Every Write/Edit/MultiEdit is then challenged against the checklist before it lands. Optional mode — `strict` (default; blocks on failure) or `advisory` (warns but allows).
 argument-hint: "[strict|advisory]"
 user-invokable: true
+disable-model-invocation: true
 allowed-tools: Bash(node:*)
 ---
 
