@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "description": "Command-gated PreToolUse guardrail that intercepts every Write/Edit/MultiEdit and forces a structured self-challenge against an extensible, file-type-aware checklist (backend + frontend) before the write lands. Real LLM judgment via a fast headless model, but the block/allow decision stays deterministic and outside the model: triviality escape hatch, fail-open on error, per-rule suppression, strict vs advisory modes, and an `ask` path for dependency upgrades. Dormant until /heimdall-on. Zero runtime dependencies (Node 16+).",
   "author": {
-    "name": "Aniket Singh1",
+    "name": "Aniket Singh",
     "email": "singhaniket264@gmail.com"
   },
   "keywords": ["hooks", "pretooluse", "guardrail", "code-review", "quality-gate", "security", "frontend"]
