@@ -1,2 +1,8 @@
 # Global code owners
 * @AniketBifrost
+
+# Extra-sensitive files — always require review, even from other owners
+/.claude-plugin/marketplace.json @AniketBifrost
+/.claude-plugin/plugin.json @AniketBifrost
+/hooks/heimdall-gate.js @AniketBifrost
+/hooks/hooks.json @AniketBifrost
