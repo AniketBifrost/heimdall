@@ -89,6 +89,46 @@ FAILED (block): minimalism, thread-safety
 Revise the code to resolve the blocking items — prefer fewer, simpler lines — then retry the write.
 ```
 
+## Competitive positioning: where Heimdall stands out
+
+Based on the tools and approaches surveyed so far, no existing solution matches Heimdall's
+full 7-point capability combination. The most important gaps across the current landscape:
+
+- **No surveyed tool combines a true pre-write gate with real LLM-based judgment.** Tools
+  that gate before code is written are deterministic only, while tools that use an LLM to
+  judge quality/safety typically operate after the turn, after the commit, or at PR time.
+- **Context-aware routing is effectively absent from the surveyed tools.** Heimdall's
+  ability to detect backend vs frontend context and selectively apply rules based on code
+  markers (data access, external calls, concurrency, RxJS, storage, etc.) did not appear in
+  any comparable tool reviewed — arguably its strongest differentiator.
+
+Taken together, the combination of (1) pre-write enforcement, (2) LLM-based judgment, and
+(3) context-aware rule routing forms the core of what makes Heimdall distinct. Across the
+surveyed tools, no alternative reproduces this combination.
+
+| Tool | 1 · Pre-write gate | 2 · LLM judge | 3 · Editable checklist | 4 · Context routing | 5 · Strict/advisory | 6 · Dep ask | 7 · Fail-open + trivial | Score |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Anthropic security guidance | ✗ post-turn Stop hook; regex prewrite | ✓ | ✓ (Markdown) | ✗ | ✗ | ✗ | ~fail-open | ~2–3 |
+| GouvernAI | ✓ (fails closed) | ✗ LLM only in advisory skill | ✓ (Markdown policies) | ✗ routes by action/risk-tier | ~partial | ✗ | ✗ | ~2 |
+| rulebricks / claude-code-guardrails | ✓ | ✗ decision tables | ✓ (tables) | ✗ tool-name match | ✗ | ~generic ask | ✗ | ~2 |
+| ai-pre-commit-reviewer | ✗ commit-time | ✓ | ✓ | ✗ 3 global booleans | ✗ | ✗ | ✗ | ~2 |
+| GateGuard | ✓ | ✗ rejects LLM-judge | ✗ | ✗ | ✗ | ✗ | ✗ | ~1 |
+| CodeRabbit | ✗ PR / post-hoc | ✓ | ~partial | ✗ | ✗ | ✗ | n/a | ~1 |
+| paulmduvall quality gate | ✗ PostToolUse | ✗ linters/thresholds | ~partial | ✗ | ✗ | ✗ | ✗ | ~1 |
+| Cursor afterFileEdit / Continue rules | ✗ notify-only/advisory | ✗ | — | ✗ | ✗ | ✗ | ✗ | ~0–1 |
+
+The closest structural comparison is Anthropic's own security-guidance pattern, because it
+does include LLM-based judgment, externally editable rules, and a multi-outcome review
+flow. However, it still falls short of Heimdall in several critical areas:
+
+- The LLM review happens after the turn, not as a true pre-write enforcement gate.
+- It does not provide context-aware routing.
+- It does not support a strong strict blocking mode.
+- It does not include a dependency-approval escalation path.
+
+In other words, even the nearest analogue does not reproduce Heimdall's core operating
+model.
+
 ## Install
 
 This is a self-contained plugin folder. Install it however you distribute Claude Code
