@@ -210,7 +210,7 @@ hook wiring changes are needed to add, remove, reweight, or disable a heimdall.
 ```
 heimdall/
   .claude-plugin/plugin.json     # manifest
-  commands/
+  skills/
     heimdall-on.md             # /heimdall-on [strict|advisory]  (allowed-tools: Bash(node:*), no prompt)
     heimdall-off.md            # /heimdall-off
     heimdall-status.md         # /heimdall-status
