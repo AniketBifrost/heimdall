@@ -1,0 +1,17 @@
+{
+  "description": "Heimdall — PreToolUse challenge on Write/Edit/MultiEdit. Dormant until /heimdall-on writes .claude/.heimdall-active; the Node orchestrator self-gates (exit-allow) when the state file is absent, so installing this plugin costs nothing until you turn it on. Kill globally with HEIMDALL_DISABLE=1.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/heimdall-gate.js\"",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}

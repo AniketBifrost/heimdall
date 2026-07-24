@@ -1,0 +1,465 @@
+# Heimdall checklist — the single source of truth for what gets challenged.
+#
+# EDIT THIS FILE to add/remove/reweight heimdalls. Nothing in the hook wiring,
+# gate.js, or challenge-prompt.md needs to change — the orchestrator reads this at
+# runtime, filters by `applies_when`, and hands the matching entries to the judge.
+#
+# Each entry:
+#   id           kebab-case unique key (shows up in FAILED lists)
+#   title        short human label
+#   question     the actual challenge the judge evaluates (keep to ONE line)
+#   applies_when one of: always | backend_change | frontend_change | new_dependency |
+#                concurrency | cache | public_api | cloud_deploy
+#   severity     block | warn | ask
+#                  block  -> denies the write in strict mode
+#                  warn   -> never denies; surfaced as advisory context
+#                  ask    -> escalates to the user (used for dependency upgrades)
+#   category     grouping label (informational)
+#   enabled      omit or true to keep active; set false to suppress without deleting
+#
+# `applies_when` matching is deterministic where it can be (file type) and marker-based
+# for semantic conditions (new_dependency/concurrency/cache/public_api/cloud_deploy):
+# an entry is included when its condition is `always`, matches the detected file type,
+# or its marker regex matches the code in tool_input. See scripts/lib.js.
+
+checklist:
+  # ── Universal (evaluated on every non-trivial change) ─────────────────────────
+  - id: necessity
+    title: Necessity
+    question: "Why is this code needed — what breaks or is missing without it? Reject dead/speculative code."
+    applies_when: always
+    severity: block
+    category: necessity
+
+  - id: minimalism
+    title: Minimalism
+    question: "Can this be done in fewer, simpler lines or fewer abstractions? Default bias: fewer lines unless complexity is justified by a real requirement."
+    applies_when: always
+    severity: block
+    category: minimalism
+
+  - id: generality
+    title: Generality
+    question: "Is there a more generic/reusable solution that avoids duplicating logic already present elsewhere in the codebase?"
+    applies_when: always
+    severity: warn
+    category: generality
+
+  - id: best-practices
+    title: Best practices
+    question: "Does this follow idiomatic conventions for the language/framework actually in use here?"
+    applies_when: always
+    severity: warn
+    category: best-practices
+
+  - id: security
+    title: Security
+    question: "Injection, secrets handling, input validation, authN/authZ, unsafe deserialization, least privilege — anything relevant to what is being written?"
+    applies_when: always
+    severity: block
+    category: security
+
+  - id: security-hotspot-review
+    title: Security hotspot review
+    question: "Does this introduce a security-sensitive construct (crypto, auth, deserialization, an injection sink, file/path handling) that must be explicitly reviewed even if no confirmed vuln is asserted?"
+    applies_when: backend_change
+    severity: warn
+    category: security
+
+  - id: secrets-in-payload
+    title: No hardcoded secrets
+    question: "Does the written text contain a hardcoded secret, API key, password, token, or connection string that should be externalized to config/env?"
+    applies_when: always
+    severity: block
+    category: security
+
+  - id: impact-area
+    title: Impact area
+    question: "What else calls or depends on this code, and was that blast radius actually checked (grep/reference search) rather than assumed?"
+    applies_when: always
+    severity: warn
+    category: impact
+
+  - id: production-readiness
+    title: Production readiness
+    question: "Logging, error handling, config-vs-hardcoding, observability — is this deployable as-is, or is it prototype quality?"
+    applies_when: always
+    severity: warn
+    category: production-readiness
+
+  - id: solid
+    title: SOLID
+    question: "Any Single-Responsibility, Open/Closed, Liskov, Interface-Segregation, or Dependency-Inversion violation? Call it out explicitly rather than assuming compliance."
+    applies_when: backend_change
+    severity: warn
+    category: solid
+
+  - id: data-structure-fit
+    title: Data structure fit
+    question: "Is the chosen data structure (List vs Dictionary vs HashSet vs Queue vs concurrent collection) right for the access pattern, or is there a better fit?"
+    applies_when: always
+    severity: warn
+    category: data-structure
+
+  - id: error-handling-completeness
+    title: Error & failure-mode handling
+    question: "Are failure modes handled, not just the happy path — thrown exceptions, null/empty results, timeouts, partial failure — with resource cleanup (disposables, connections, handles)?"
+    applies_when: always
+    severity: warn
+    category: production-readiness
+
+  - id: tests-with-change
+    title: Tests changed with the code
+    question: "Does this behavior change ship with a matching test add/update, or is it silently untested? (Trivial/config edits exempt.)"
+    applies_when: always
+    severity: warn
+    category: tests
+
+  - id: naming-clarity
+    title: Naming & self-documentation
+    question: "Would a new engineer understand this from names alone, without a comment dump? Flag cryptic or misleading names."
+    applies_when: always
+    severity: warn
+    category: best-practices
+
+  - id: no-disabled-guards
+    title: Not disabling safety guards
+    question: "Does this change disable a guard — add eslint-disable / # type: ignore / @SuppressWarnings / [SuppressMessage] / #pragma warning disable, or delete/skip a test — without strong justification?"
+    applies_when: always
+    severity: block
+    category: security
+
+  - id: complexity-ceiling
+    title: Complexity ceiling
+    question: "Is any single function/edit an oversized blob (deep nesting, many responsibilities) that should be decomposed?"
+    applies_when: always
+    severity: warn
+    category: minimalism
+
+  # ── Dependencies ──────────────────────────────────────────────────────────────
+  - id: dependency-currency
+    title: Dependency currency
+    question: "Does this add or bump a package reference? If a newer version exists, DO NOT silently upgrade — surface it for the user to accept or deny."
+    applies_when: new_dependency
+    severity: ask
+    category: dependency
+
+  - id: dependency-justified
+    title: New dependency justified
+    question: "Is a newly introduced dependency actually warranted, or could a native API / a few lines of existing utility code do the job? Is its license/IP acceptable?"
+    applies_when: new_dependency
+    severity: warn
+    category: dependency
+
+  - id: lockfile-drift
+    title: Lockfile / manifest consistency
+    question: "If a manifest (package.json/.csproj/requirements) changed, is the corresponding lockfile updated consistently, and no stray/duplicate versions introduced?"
+    applies_when: new_dependency
+    severity: warn
+    category: dependency
+
+  # ── Backend runtime concerns (marker-gated) ──────────────────────────────────
+  - id: caching-strategy
+    title: Caching / session / Redis
+    question: "TTL strategy, cache invalidation, key design, serialization cost, and cache-stampede protection — are these handled for the cache/session/Redis usage introduced?"
+    applies_when: cache
+    severity: warn
+    category: caching
+
+  - id: thread-safety
+    title: Thread safety & load
+    question: "Will this survive concurrent access and real load? Is shared mutable state, locking, or the concurrency primitive handled correctly (no races, no deadlock)?"
+    applies_when: concurrency
+    severity: block
+    category: concurrency
+
+  - id: idempotency
+    title: Idempotency
+    question: "For anything touching queues, retries, webhooks, or message handlers — is the operation idempotent under redelivery/duplicate processing?"
+    applies_when: concurrency
+    severity: warn
+    category: concurrency
+
+  - id: cloud-deploy-fit
+    title: AKS / cloud-deploy fit
+    question: "Does this behave correctly under pod restarts, horizontal scaling, config-via-environment, health probes, and non-root container constraints?"
+    applies_when: cloud_deploy
+    severity: warn
+    category: cloud
+
+  - id: api-versioning
+    title: API versioning & compatibility
+    question: "If this touches a public/internal API surface, is backward compatibility preserved (or the version bumped), so existing callers/contracts don't break?"
+    applies_when: public_api
+    severity: block
+    category: impact
+
+  - id: rate-limiting
+    title: Rate limiting / throttling
+    question: "For any new outbound external call, is there sensible timeout, retry-with-backoff, and rate-limit/throttle handling rather than an unbounded hot loop?"
+    applies_when: public_api
+    severity: warn
+    category: production-readiness
+
+  # ── Frontend: architectural discipline ───────────────────────────────────────
+  - id: fe-logic-ui-separation
+    title: Logic/UI separation
+    question: "Is business logic (pricing, filtering, calculations) isolated from markup/rendering, or tangled directly into JSX/template code?"
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-architecture
+
+  - id: fe-state-ownership
+    title: State ownership clarity
+    question: "Is it clear which component owns each piece of state and how it flows down/up? Flag ad-hoc mutation of state across unrelated components."
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-architecture
+
+  - id: fe-component-atomicity
+    title: Component atomicity
+    question: "Does each component do one thing, or is this a monolith doing five jobs at once that should be split?"
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-architecture
+
+  - id: fe-smart-dumb-split
+    title: Smart vs dumb split
+    question: "Is data-fetching/state (container) separated from pure rendering (presentational), or mixed together?"
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-architecture
+
+  # ── Frontend: standardization & quality ──────────────────────────────────────
+  - id: fe-lint-format
+    title: Lint/format compliance
+    question: "Does this pass the project's EXISTING ESLint/Prettier config? Check against configured rules — do not invent new ones."
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-standards
+
+  - id: fe-type-safety
+    title: Type safety
+    question: "If TypeScript is in use, are types real and specific, or is this leaning on any / implicit any to dodge the compiler?"
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-standards
+
+  - id: fe-import-consistency
+    title: Import path consistency
+    question: "Does this follow the repo's existing import convention (absolute @/ vs relative), not a one-off style?"
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-standards
+
+  # ── Frontend: DOM & styling ──────────────────────────────────────────────────
+  - id: fe-semantic-a11y
+    title: Semantic HTML & accessibility
+    question: "Are semantic elements used over generic div/span where appropriate, and are interactive elements keyboard-navigable with proper ARIA and focus management (not mouse-only, e.g. a div with onClick instead of a button)?"
+    applies_when: frontend_change
+    severity: block
+    category: frontend-dom
+
+  - id: fe-a11y-floor
+    title: Accessibility floor
+    question: "Do images have alt text, form inputs have associated labels, and anchors have discernible content? (jsx-a11y essentials.)"
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-dom
+
+  - id: fe-design-tokens
+    title: Design token usage
+    question: "Are colors, spacing, and typography pulled from centralized design tokens / CSS variables / theme, or hardcoded magic values (incl. inline styles)?"
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-dom
+
+  - id: fe-style-isolation
+    title: Style isolation
+    question: "Are styles scoped to the component (CSS modules, scoped styles, CSS-in-JS, BEM) so they can't leak globally and break unrelated elements?"
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-dom
+
+  # ── Frontend: performance ────────────────────────────────────────────────────
+  - id: fe-bundle-impact
+    title: Bundle impact
+    question: "Does this add a dependency for what a native browser API or a few lines could do, and is lazy-loading/code-splitting used for route-level or heavy chunks?"
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-perf
+
+  - id: fe-rerender-discipline
+    title: Re-render discipline
+    question: "Is memoization (useMemo/useCallback/React.memo or equivalent) applied where it earns its cost and avoided where it's needless defensive overhead?"
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-perf
+
+  - id: fe-list-keys
+    title: List rendering keys
+    question: "Do rendered lists use stable, unique keys (not the array index) where order or identity can change?"
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-perf
+
+  - id: fe-hooks-deps
+    title: Hook dependency correctness
+    question: "Do effect/callback dependency arrays list every referenced value (no stale closures) without disabling the exhaustive-deps lint?"
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-perf
+
+  # ── Frontend: resilience & safety ────────────────────────────────────────────
+  - id: fe-failure-states
+    title: Error boundaries & failure states
+    question: "Does the UI degrade gracefully on a failed fetch/render (loading, error, and empty states), or does failure produce a blank screen/crash?"
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-resilience
+
+  - id: fe-form-validation
+    title: Form validation & UX
+    question: "Is user input validated client-side for UX AND treated as untrusted (never client-validation-only for security), with clear field-scoped error messages?"
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-resilience
+
+  - id: fe-xss-surface
+    title: XSS / injection surface
+    question: "Any dangerouslySetInnerHTML / v-html / raw DOM insertion of user-controlled content? Flag by default unless explicitly sanitized (e.g. DOMPurify)."
+    applies_when: frontend_change
+    severity: block
+    category: frontend-resilience
+
+  - id: fe-responsive
+    title: Responsive behavior
+    question: "Does this hold up across mobile/tablet/desktop breakpoints, not just the current viewport?"
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-dom
+
+  - id: fe-ssr-hydration
+    title: SSR / hydration safety
+    question: "If using Next/Nuxt/SvelteKit, does this avoid browser-only APIs (window, localStorage) during server render and avoid hydration mismatches?"
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-resilience
+
+  - id: fe-client-secrets
+    title: Secrets in client code
+    question: "Is anything sensitive (API keys, internal URLs) being bundled into client-shipped code instead of staying server-side?"
+    applies_when: frontend_change
+    severity: block
+    category: frontend-resilience
+
+  - id: fe-asset-optimization
+    title: Image/asset optimization
+    question: "Are images sized/compressed/lazy-loaded, rather than shipping unoptimized full-resolution assets to the client?"
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-perf
+
+  # ── API contract surface (marker/path-gated: public_api) ─────────────────────
+  - id: dto-not-entity
+    title: DTOs, not entities, on the wire
+    question: "Does this expose a DB/EF/ORM entity directly in a request or response instead of a purpose-built DTO/contract model? Map to a DTO."
+    applies_when: public_api
+    severity: block
+    category: api-contract
+
+  - id: http-status-codes
+    title: Correct HTTP status codes
+    question: "Are status codes correct and consistent (201 on create, 204 on empty, 400/401/403/404/409/422/429 as appropriate) — never 200 for a failure case?"
+    applies_when: public_api
+    severity: warn
+    category: api-contract
+
+  - id: pagination-bounded
+    title: Bounded list responses
+    question: "Does a list/collection endpoint return an unbounded result set? List endpoints must paginate (or cap) with a documented default limit and sort order."
+    applies_when: public_api
+    severity: block
+    category: api-contract
+
+  - id: mass-assignment
+    title: Over-posting / mass assignment
+    question: "Does model binding bind to a broad entity/model that lets a client set fields it shouldn't (mass assignment / over-posting)? Bind to an explicit input DTO with only allowed fields."
+    applies_when: public_api
+    severity: block
+    category: security
+
+  # ── Data access (marker-gated: data_access) ──────────────────────────────────
+  - id: ef-query-efficiency
+    title: Query efficiency
+    question: "Read-only query without AsNoTracking, an N+1 pattern, loading whole entities where a projection would do, or an unbounded/blind Include graph — is the query shaped for its access pattern?"
+    applies_when: data_access
+    severity: warn
+    category: data-access
+
+  - id: transaction-consistency
+    title: Transactional consistency
+    question: "Do multiple writes that must succeed-or-fail together run in a single transaction, with optimistic-concurrency / conflict handling where rows can be updated concurrently?"
+    applies_when: data_access
+    severity: warn
+    category: data-access
+
+  # ── Async / DI / resilience / CORS (marker-gated, backend) ───────────────────
+  - id: sync-over-async
+    title: No sync-over-async
+    question: "Does this block on async with .Result / .Wait() / .GetAwaiter().GetResult() (deadlock + thread-starvation risk under load)? Await it instead, async all the way."
+    applies_when: blocking_async
+    severity: block
+    category: concurrency
+
+  - id: di-lifetime
+    title: DI lifetime correctness
+    question: "Are DI registrations the right lifetime, with no captive dependency (a Scoped/Transient service held by a Singleton) and no accidental shared mutable state?"
+    applies_when: di_registration
+    severity: warn
+    category: best-practices
+
+  - id: external-call-resilience
+    title: Outbound call resilience
+    question: "Does this outbound call set a timeout and a bounded retry/backoff (or circuit breaker) for transient failures, and avoid leaking the upstream's raw error body to the caller?"
+    applies_when: external_call
+    severity: block
+    category: production-readiness
+
+  - id: cors-policy
+    title: CORS policy
+    question: "Does the CORS config use AllowAnyOrigin (especially with credentials) or an over-broad origin list instead of an explicit allowlist?"
+    applies_when: cors_config
+    severity: block
+    category: security
+
+  # ── Angular / RxJS (marker-gated, frontend) ──────────────────────────────────
+  - id: fe-angular-rxjs
+    title: RxJS discipline
+    question: "Nested subscriptions, a subscription with no unsubscribe/takeUntil/async-pipe (leak), heavy work inline in the template, or a large *ngFor without trackBy — is the stream/lifecycle handled cleanly?"
+    applies_when: rxjs
+    severity: warn
+    category: frontend-architecture
+
+  # ── Client storage (marker-gated, frontend) ──────────────────────────────────
+  - id: fe-token-storage
+    title: Sensitive data in client storage
+    question: "Is a token/credential/PII being written to localStorage/sessionStorage/cookie where it's exposed to XSS, instead of an httpOnly cookie or in-memory handling?"
+    applies_when: client_storage
+    severity: block
+    category: frontend-resilience
+
+  - id: fe-error-messaging
+    title: User-facing error messaging
+    question: "Does the UI distinguish validation vs permission vs network vs system errors with a clear, field-scoped message, rather than a blanket 'Something went wrong'?"
+    applies_when: frontend_change
+    severity: warn
+    category: frontend-resilience
+
+  # ── Universal cleanliness ────────────────────────────────────────────────────
+  - id: no-dead-code
+    title: No dead code left behind
+    question: "Does this leave commented-out code blocks, unused symbols/imports, or stale TODOs that should be removed rather than shipped?"
+    applies_when: always
+    severity: warn
+    category: best-practices
